@@ -2,7 +2,6 @@ package merkletree
 
 import (
 	"errors"
-	"fmt"
 	"hash"
 	"sync"
 )
@@ -66,10 +65,8 @@ func (t *Tree) Root() []byte {
 		return t.root
 	}
 
-	// if we have an odd number of nodes,
-	// duplicate the last hash
-	if len(t.nodes)%2 == 1 {
-		t.nodes = append(t.nodes, t.nodes[len(t.nodes)-1].clone())
+	if t.leaves < 1 {
+		return nil
 	}
 
 	hs := t.hashpool.Get().(hash.Hash)
@@ -77,12 +74,18 @@ func (t *Tree) Root() []byte {
 	start := 0
 	end := t.leaves
 
-	for end-start >= 2 {
+	for end-start > 2 {
 		for i := start; i < end; i = i + 2 {
-			fmt.Println(len(t.nodes), i, start, end)
 			hs.Reset()
 			hs.Write(t.nodes[i].hash)
-			hs.Write(t.nodes[i+1].hash)
+
+			// if this row is unbalanced, hash with a duplicate of the last leaf
+			if end-i < 2 {
+				hs.Write(t.nodes[i].hash)
+			} else {
+				hs.Write(t.nodes[i+1].hash)
+			}
+
 			h := hs.Sum(nil)
 
 			n := &node{
@@ -90,13 +93,18 @@ func (t *Tree) Root() []byte {
 			}
 
 			t.nodes[i].parent = n
-			t.nodes[i+1].parent = n
+
+			if end-i >= 2 {
+				t.nodes[i+1].parent = n
+			}
 
 			t.nodes = append(t.nodes, n)
 		}
 
+		d := (end - start) / 2
+
 		start = end
-		end = start + (start / 2)
+		end = start + d
 	}
 
 	// calculate the root hash and append it
