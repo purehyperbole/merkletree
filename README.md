@@ -34,7 +34,7 @@ func main() {
     }
 
     // validate the proof against the hash of the value and merkle root
-    err = merkletree.Validate(h2, mrh, proof)
+    err = merkletree.Validate(sha256.New(), h2, mrh, proof)
     if err != nil {
         panic(err)
     }

@@ -31,7 +31,29 @@ func New(initialSize int, hasher func() hash.Hash) *Tree {
 }
 
 // Validate validates a merkle proof. returns nil if the merkle proof contains the target hash
-func Validate(target, root []byte, proof [][]byte) error {
+func Validate(hasher hash.Hash, target, root []byte, proof Proof) error {
+	current := target
+
+	for i := range proof {
+		hasher.Reset()
+
+		p := (proof)[i]
+
+		if p.Left != nil {
+			hasher.Write(p.Left)
+			hasher.Write(current)
+		} else {
+			hasher.Write(current)
+			hasher.Write(p.Right)
+		}
+
+		current = hasher.Sum(nil)
+	}
+
+	if !bytes.Equal(current, root) {
+		return errors.New("merkle proof could not be verified")
+	}
+
 	return nil
 }
 
@@ -144,7 +166,7 @@ func (t *Tree) Root() []byte {
 }
 
 // Proof generates a proof for a given hash included in the merkle tree
-func (t *Tree) Proof(targetHash []byte) ([][]byte, error) {
+func (t *Tree) Proof(targetHash []byte) (Proof, error) {
 	if t.root == nil {
 		return nil, errors.New("proof cannot be generated as the merkle root has not been constructed")
 	}
@@ -164,14 +186,14 @@ func (t *Tree) Proof(targetHash []byte) ([][]byte, error) {
 		return nil, errors.New("target hash does not exist in the tree")
 	}
 
-	var proof [][]byte
+	var proof Proof
 
 	current = target
 
 	for current != nil {
 		if current.left != previous {
 			if current.left != nil {
-				proof = append(proof, current.left.hash)
+				proof = append(proof, Pair{Left: current.left.hash})
 			} else {
 				previous = current
 				current = previous.parent
@@ -179,9 +201,9 @@ func (t *Tree) Proof(targetHash []byte) ([][]byte, error) {
 			}
 		} else if current.right != previous {
 			if current.right == nil {
-				proof = append(proof, current.left.hash)
+				proof = append(proof, Pair{Right: current.left.hash})
 			} else {
-				proof = append(proof, current.right.hash)
+				proof = append(proof, Pair{Right: current.right.hash})
 			}
 		}
 

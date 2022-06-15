@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"hash"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -170,9 +171,9 @@ func TestMerkleTreeProofBalanced(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, proof, 3)
 
-	assert.Equal(t, testshash("2"), proof[0])
-	assert.Equal(t, testscombine("3", "4"), proof[1])
-	assert.Equal(t, mt.nodes[13].hash, proof[2])
+	assert.Equal(t, testshash("2"), proof[0].Right)
+	assert.Equal(t, testscombine("3", "4"), proof[1].Right)
+	assert.Equal(t, mt.nodes[13].hash, proof[2].Right)
 }
 
 func TestMerkleTreeProofUnbalanced(t *testing.T) {
@@ -193,31 +194,68 @@ func TestMerkleTreeProofUnbalanced(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, proof, 3)
 
-	assert.Equal(t, testshash("5"), proof[0])
-	assert.Equal(t, testscombine("5", "5"), proof[1])
-	assert.Equal(t, mt.nodes[8].hash, proof[2])
+	assert.Equal(t, testshash("5"), proof[0].Right)
+	assert.Equal(t, testscombine("5", "5"), proof[1].Right)
+	assert.Equal(t, mt.nodes[8].hash, proof[2].Left)
+}
+
+func TestMerkleTreeValidate(t *testing.T) {
+	mt := New(1000, func() hash.Hash {
+		return sha256.New()
+	})
+
+	vh := make([][]byte, 0, 1000)
+
+	for i := 0; i < 1000; i++ {
+		vh = append(vh, mt.Insert([]byte(strconv.Itoa(i))))
+	}
+
+	mrh := mt.Root()
+
+	// test some random entries for proofs
+	for i := 0; i < 50; i++ {
+		target := vh[rand.Intn(1000)]
+
+		proof, err := mt.Proof(target)
+		require.Nil(t, err)
+		assert.NotNil(t, proof)
+
+		err = Validate(sha256.New(), target, mrh, proof)
+		require.Nil(t, err)
+	}
+
+	// test an invalid target hash
+	proof, err := mt.Proof(testshash("invalid"))
+	require.NotNil(t, err)
+	require.Nil(t, proof)
+
+	proof, err = mt.Proof(vh[0])
+	require.Nil(t, err)
+
+	err = Validate(sha256.New(), testshash("invalid"), mrh, proof)
+	require.NotNil(t, err)
+
+	// test an invalid root hash
+	err = Validate(sha256.New(), vh[0], testshash("invalid"), proof)
+	require.NotNil(t, err)
 }
 
 func TestMerkleTreeLarge(t *testing.T) {
-	t.Skip()
-
-	mt := New(1000000, func() hash.Hash {
+	mt := New(100000, func() hash.Hash {
 		return sha256.New()
 	})
 
 	start := time.Now()
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < 100000; i++ {
 		mt.Insert([]byte(strconv.Itoa(i)))
 	}
 
 	fmt.Println("insert took: ", time.Since(start))
 
 	start = time.Now()
-
 	mt.Root()
 
 	fmt.Println("root took: ", time.Since(start))
-	fmt.Println(len(mt.nodes))
 }
 
 func testshash(a string) []byte {
