@@ -74,29 +74,28 @@ func (t *Tree) Root() []byte {
 	start := 0
 	end := t.leaves
 
+	// calculate each row of hashes
 	for end-start > 2 {
+		var additional int
+
 		for i := start; i < end; i = i + 2 {
-			hs.Reset()
-			hs.Write(t.nodes[i].hash)
-
-			// if this row is unbalanced, hash with a duplicate of the last leaf
-			if end-i < 2 {
-				hs.Write(t.nodes[i].hash)
-			} else {
-				hs.Write(t.nodes[i+1].hash)
-			}
-
-			h := hs.Sum(nil)
-
-			n := &node{
-				hash: h,
-			}
+			n := &node{}
 
 			t.nodes[i].parent = n
 
-			if end-i >= 2 {
+			hs.Reset()
+			hs.Write(t.nodes[i].hash)
+
+			// if this row is unbalanced, hash with a duplicate of the last hash
+			if end-i < 2 {
+				hs.Write(t.nodes[i].hash)
+				additional++
+			} else {
 				t.nodes[i+1].parent = n
+				hs.Write(t.nodes[i+1].hash)
 			}
+
+			n.hash = hs.Sum(nil)
 
 			t.nodes = append(t.nodes, n)
 		}
@@ -104,7 +103,7 @@ func (t *Tree) Root() []byte {
 		d := (end - start) / 2
 
 		start = end
-		end = start + d
+		end = start + d + additional
 	}
 
 	// calculate the root hash and append it

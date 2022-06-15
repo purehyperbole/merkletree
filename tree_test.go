@@ -120,29 +120,28 @@ func TestMerkleTreeUnbalanced(t *testing.T) {
 	h3 := hs.Sum(nil)
 
 	assert.Equal(t, mt.nodes[7].hash, h3)
-	assert.Equal(t, mt.nodes[8].hash, h3)
 
 	hs.Reset()
 
+	hs.Write(mt.nodes[5].hash)
 	hs.Write(mt.nodes[6].hash)
-	hs.Write(mt.nodes[7].hash)
 	h5 := hs.Sum(nil)
 
-	assert.Equal(t, mt.nodes[9].hash, h5)
+	assert.Equal(t, mt.nodes[8].hash, h5)
 
 	hs.Reset()
 
-	hs.Write(mt.nodes[8].hash)
-	hs.Write(mt.nodes[8].hash)
+	hs.Write(mt.nodes[7].hash)
+	hs.Write(mt.nodes[7].hash)
 	h6 := hs.Sum(nil)
 
-	assert.Equal(t, mt.nodes[10].hash, h6)
+	assert.Equal(t, mt.nodes[9].hash, h6)
 
 	hs.Reset()
 
+	hs.Write(mt.nodes[8].hash)
 	hs.Write(mt.nodes[9].hash)
-	hs.Write(mt.nodes[10].hash)
 	h7 := hs.Sum(nil)
 
-	assert.Equal(t, mt.root, h7)
+	assert.Equal(t, mrh, h7)
 }
